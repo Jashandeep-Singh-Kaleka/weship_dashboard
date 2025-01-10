@@ -69,7 +69,7 @@ def check_password():
         with col2:
             col_a, col_b, col_c = st.columns([1,3,1])
             with col_b:
-                st.image('Weshipcirclelogo_Logo_Full_Color_RGB.svg', width=250, use_column_width=True)
+                st.image('Weshipcirclelogo_Logo_Full_Color_RGB.svg', width=250, use_container_width=True)
             st.markdown("<h1 style='text-align: center;'>Login</h1>", unsafe_allow_html=True)
             st.text_input("Username", key="username")
             st.text_input("Password", type="password", key="password")
@@ -81,7 +81,7 @@ def check_password():
         with col2:
             col_a, col_b, col_c = st.columns([1,3,1])
             with col_b:
-                st.image('Weshipcirclelogo_Logo_Full_Color_RGB.svg', width=100, use_column_width=True)
+                st.image('Weshipcirclelogo_Logo_Full_Color_RGB.svg', width=100, use_container_width=True)
             st.markdown("<h1 style='text-align: center;'>Login</h1>", unsafe_allow_html=True)
             st.text_input("Username", key="username")
             st.text_input("Password", type="password", key="password")
