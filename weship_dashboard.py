@@ -106,10 +106,31 @@ if check_password():
     @st.cache_data
     def load_zip_coordinates():
         try:
-            zip_file_path = 'uszips.csv'
-            zip_df = pd.read_csv(zip_file_path)
-            zip_df['zip'] = zip_df['zip'].astype(str).str.zfill(5)  # Ensure ZIP codes are 5 digits
+            # Query zip code data from Snowflake instead of loading from file
+            conn = snowflake.connector.connect(
+                account=st.secrets["snowflake"]["account"],
+                user=st.secrets["snowflake"]["user"],
+                password=st.secrets["snowflake"]["password"],
+                role=st.secrets["snowflake"]["role"],
+                warehouse=st.secrets["snowflake"]["warehouse"],
+                database=st.secrets["snowflake"]["database"],
+                schema=st.secrets["snowflake"]["schema"]
+            )
+            cur = conn.cursor()
+            
+            query = """
+                SELECT zip, lat, lng 
+                FROM ZIP_CODES
+            """
+            cur.execute(query)
+            zip_df = cur.fetch_pandas_all()
+            
+            cur.close()
+            conn.close()
+            
+            zip_df['zip'] = zip_df['zip'].astype(str).str.zfill(5)
             return zip_df
+            
         except Exception as e:
             st.error(f"Error loading ZIP coordinates: {str(e)}")
             return pd.DataFrame(columns=['zip', 'lat', 'lng'])
