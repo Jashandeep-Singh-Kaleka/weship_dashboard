@@ -42,17 +42,26 @@ def load_background_data():
         df['Profit'] = df['BEF_Cost'] - df['CI_Net Charge Amount']
         df['Profit_Positive'] = df['Profit'].apply(lambda x: max(x, 1))
         
+        # Query zip code data
+        zip_query = """
+            SELECT ZIP, LAT, LNG 
+            FROM ZIP_CODES
+        """
+        cur.execute(zip_query)
+        zip_df = cur.fetch_pandas_all()
+        zip_df['ZIP'] = zip_df['ZIP'].astype(str).str.zfill(5)
+        
         cur.close()
         conn.close()
         
-        return df
+        return df, zip_df
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        # Return empty dataframe with expected columns as fallback
-        return pd.DataFrame(columns=['BEF_Cost', 'CI_Net Charge Amount', 'Profit', 'Profit_Positive'])
-
+        # Return empty dataframes with expected columns as fallback
+        return pd.DataFrame(columns=['BEF_Cost', 'CI_Net Charge Amount', 'Profit', 'Profit_Positive']), pd.DataFrame(columns=['ZIP', 'LAT', 'LNG'])
+    
 # Start loading data in background
-background_data = load_background_data()
+background_data, zip_df = load_background_data()
 
 # --- Login Screen ---
 def check_password():
@@ -101,41 +110,6 @@ if check_password():
 
     # Use the pre-loaded data
     df = background_data
-
-    # --- Load ZIP Code Coordinates Dataset ---
-    @st.cache_data
-    def load_zip_coordinates():
-        try:
-            # Query zip code data from Snowflake instead of loading from file
-            conn = snowflake.connector.connect(
-                account=st.secrets["snowflake"]["account"],
-                user=st.secrets["snowflake"]["user"],
-                password=st.secrets["snowflake"]["password"],
-                role=st.secrets["snowflake"]["role"],
-                warehouse=st.secrets["snowflake"]["warehouse"],
-                database=st.secrets["snowflake"]["database"],
-                schema=st.secrets["snowflake"]["schema"]
-            )
-            cur = conn.cursor()
-            
-            query = """
-                SELECT zip, lat, lng 
-                FROM ZIP_CODES
-            """
-            cur.execute(query)
-            zip_df = cur.fetch_pandas_all()
-            
-            cur.close()
-            conn.close()
-            
-            zip_df['zip'] = zip_df['zip'].astype(str).str.zfill(5)
-            return zip_df
-            
-        except Exception as e:
-            st.error(f"Error loading ZIP coordinates: {str(e)}")
-            return pd.DataFrame(columns=['zip', 'lat', 'lng'])
-
-    zip_df = load_zip_coordinates()
 
     # --- Sidebar Filters ---
     st.sidebar.header("Filter Options")
@@ -223,14 +197,14 @@ if check_password():
 
     # --- Merge Coordinates with Shipment Data ---
     df['CI_Recipient Zip Code'] = df['CI_Recipient Zip Code'].astype(str).str.zfill(5)
-    df = df.merge(zip_df[['zip', 'lat', 'lng']], left_on='CI_Recipient Zip Code', right_on='zip', how='left')
+    df = df.merge(zip_df[['ZIP', 'LAT', 'LNG']], left_on='CI_Recipient Zip Code', right_on='ZIP', how='left')
 
     # --- Plot Recipient Map ---
     st.subheader("📦 Recipient Locations")
     fig_recipient_map = px.scatter_mapbox(
         df,
-        lat="lat",
-        lon="lng",
+        lat="LAT",
+        lon="LNG",
         color="CI_Carrier Name",
         size="Profit_Positive",
         hover_data={
