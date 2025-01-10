@@ -1,7 +1,8 @@
-streamlit
-pandas
-plotly
-transformers
-scikit-learn
-numpy
-prophet
+streamlit>=1.27.0
+pandas>=2.0.0
+plotly>=5.13.0
+transformers>=4.30.0
+scikit-learn>=1.2.0
+numpy>=1.23.0
+prophet>=1.1.4
+snowflake-connector-python>=3.0.0
