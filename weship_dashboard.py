@@ -199,36 +199,31 @@ if check_password():
     )
     st.plotly_chart(fig_carrier_breakdown)
 
+    
+
     # --- Merge Coordinates with Shipment Data ---
-    filtered_df['CI_Recipient Zip Code'] = filtered_df['CI_Recipient Zip Code'].astype(str).str.zfill(5)
-    filtered_df = filtered_df.merge(zip_df[['zip', 'lat', 'lng']], left_on='CI_Recipient Zip Code', right_on='zip', how='left')
+    df['CI_Recipient Zip Code'] = df['CI_Recipient Zip Code'].astype(str).str.zfill(5)
+    df = df.merge(zip_df[['zip', 'lat', 'lng']], left_on='CI_Recipient Zip Code', right_on='zip', how='left')
 
     # --- Plot Recipient Map ---
     st.subheader("📦 Recipient Locations")
-    
-    # Filter out rows with missing coordinates
-    map_df = filtered_df.dropna(subset=['lat', 'lng'])
-    
-    if not map_df.empty:
-        fig_recipient_map = px.scatter_mapbox(
-            map_df,
-            lat="lat",
-            lon="lng",
-            color="CI_Carrier Name",
-            size="Profit_Positive",
-            hover_data={
-                "Profit": ":.2f",
-                "CI_Number of Pieces": True,
-                "CI_Actual Weight Amount": True
-            },
-            mapbox_style="carto-positron",
-            title="Recipient Locations (USA)",
-            zoom=3,
-            center={"lat": 37.0902, "lon": -95.7129}  # Centered on the USA
-        )
-        st.plotly_chart(fig_recipient_map)
-    else:
-        st.warning("No valid coordinates available for mapping")
+    fig_recipient_map = px.scatter_mapbox(
+        df,
+        lat="lat",
+        lon="lng",
+        color="CI_Carrier Name",
+        size="Profit_Positive",
+        hover_data={
+            "Profit": ":.2f",
+            "CI_Number of Pieces": True,
+            "CI_Actual Weight Amount": True
+        },
+        mapbox_style="carto-positron",
+        title="Recipient Locations (USA)",
+        zoom=3,
+        center={"lat": 37.0902, "lon": -95.7129}  # Centered on the USA
+    )
+    st.plotly_chart(fig_recipient_map)
 
     # --- Time Series Analysis ---
     st.subheader("📈 Revenue, Cost, and Profit Over Time")
