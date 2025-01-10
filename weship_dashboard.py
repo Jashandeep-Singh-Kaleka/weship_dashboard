@@ -14,38 +14,43 @@ st.set_page_config(page_title="WeShip Express Dashboard", layout="wide")
 # --- Load Data in Background ---
 @st.cache_data
 def load_background_data():
-    # Establish connection to Snowflake
-    def connectToSnowflake():
-        connect = snowflake.connector.connect(
-        account="ze82956.south-central-us.azure",
-        user="jkaleka", 
-        password="Se-#kaleka@25",
-        role="ACCOUNTADMIN",
-        warehouse="WSE_WH",
-        database="WSESTG",
-        schema="SANDBOX"
-        )
-        return connect
+    try:
+        # Establish connection to Snowflake
+        def connectToSnowflake():
+            connect = snowflake.connector.connect(
+                account=st.secrets["snowflake"]["account"],
+                user=st.secrets["snowflake"]["user"],
+                password=st.secrets["snowflake"]["password"],
+                role=st.secrets["snowflake"]["role"],
+                warehouse=st.secrets["snowflake"]["warehouse"],
+                database=st.secrets["snowflake"]["database"],
+                schema=st.secrets["snowflake"]["schema"]
+            )
+            return connect
 
-    conn = connectToSnowflake()
-    cur = conn.cursor()
+        conn = connectToSnowflake()
+        cur = conn.cursor()
 
-    # Query data from Snowflake
-    query = """
-        SELECT *
-        FROM JOINED_BEF_X_CARRIER_INVOICE_V2 
-        WHERE "NetSuite_Customer Name" = 'Wines ''til Sold Out'
-        AND _merge = 'both'
-    """
-    cur.execute(query)
-    df = cur.fetch_pandas_all()
-    df['Profit'] = df['BEF_Cost'] - df['CI_Net Charge Amount']
-    df['Profit_Positive'] = df['Profit'].apply(lambda x: max(x, 1))
-    
-    cur.close()
-    conn.close()
-    
-    return df
+        # Query data from Snowflake
+        query = """
+            SELECT *
+            FROM JOINED_BEF_X_CARRIER_INVOICE_V2 
+            WHERE "NetSuite_Customer Name" = 'Wines ''til Sold Out'
+            AND _merge = 'both'
+        """
+        cur.execute(query)
+        df = cur.fetch_pandas_all()
+        df['Profit'] = df['BEF_Cost'] - df['CI_Net Charge Amount']
+        df['Profit_Positive'] = df['Profit'].apply(lambda x: max(x, 1))
+        
+        cur.close()
+        conn.close()
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        # Return empty dataframe with expected columns as fallback
+        return pd.DataFrame(columns=['BEF_Cost', 'CI_Net Charge Amount', 'Profit', 'Profit_Positive'])
 
 # Start loading data in background
 background_data = load_background_data()
@@ -56,7 +61,7 @@ def check_password():
 
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if st.session_state["username"].lower() == "test" and st.session_state["password"] == "weship":
+        if st.session_state["username"].lower() == st.secrets["login"]["username"] and st.session_state["password"] == st.secrets["login"]["password"]:
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # Don't store password
             del st.session_state["username"]  # Don't store username
@@ -101,10 +106,14 @@ if check_password():
     # --- Load ZIP Code Coordinates Dataset ---
     @st.cache_data
     def load_zip_coordinates():
-        zip_file_path = 'uszips.csv'
-        zip_df = pd.read_csv(zip_file_path)
-        zip_df['zip'] = zip_df['zip'].astype(str).str.zfill(5)  # Ensure ZIP codes are 5 digits
-        return zip_df
+        try:
+            zip_file_path = 'uszips.csv'
+            zip_df = pd.read_csv(zip_file_path)
+            zip_df['zip'] = zip_df['zip'].astype(str).str.zfill(5)  # Ensure ZIP codes are 5 digits
+            return zip_df
+        except Exception as e:
+            st.error(f"Error loading ZIP coordinates: {str(e)}")
+            return pd.DataFrame(columns=['zip', 'lat', 'lng'])
 
     zip_df = load_zip_coordinates()
 
