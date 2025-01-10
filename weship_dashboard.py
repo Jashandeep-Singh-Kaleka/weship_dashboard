@@ -8,14 +8,36 @@ import snowflake.connector
 from snowflake.connector.pandas_tools import write_pandas
 import gc
 import traceback
+import psutil
+import os
 
 # Set page config first before any other Streamlit commands
 st.set_page_config(page_title="WeShip Express Dashboard", layout="wide")
+
+# Function to get current memory usage
+def get_memory_usage():
+    process = psutil.Process(os.getpid())
+    memory_mb = process.memory_info().rss / 1024 / 1024  # Convert to MB
+    return memory_mb
+
+# Function to check if memory usage is too high
+def check_memory_usage():
+    memory_mb = get_memory_usage()
+    # Streamlit cloud has a 1GB memory limit
+    memory_limit_mb = 1000  
+    
+    if memory_mb > memory_limit_mb * 0.9:  # Warning at 90% usage
+        st.warning(f"High memory usage detected: {memory_mb:.1f}MB / {memory_limit_mb}MB")
+        return True
+    return False
 
 # --- Load Data in Background ---
 @st.cache_data
 def load_background_data():
     try:
+        # Log initial memory usage
+        st.write(f"Initial memory usage: {get_memory_usage():.1f}MB")
+
         # Establish connection to Snowflake
         def connectToSnowflake():
             try:
@@ -52,6 +74,9 @@ def load_background_data():
             df['Profit'] = df['BEF_Cost'] - df['CI_Net Charge Amount']
             df['Profit_Positive'] = df['Profit'].apply(lambda x: max(x, 1))
             
+            # Log memory after loading main dataframe
+            st.write(f"Memory after loading main data: {get_memory_usage():.1f}MB")
+            
             # Query zip code data
             zip_query = """
                 SELECT ZIP, LAT, LNG 
@@ -60,6 +85,9 @@ def load_background_data():
             cur.execute(zip_query)
             zip_df = cur.fetch_pandas_all()
             zip_df['ZIP'] = zip_df['ZIP'].astype(str).str.zfill(5)
+            
+            # Log final memory usage
+            st.write(f"Final memory usage: {get_memory_usage():.1f}MB")
             
             return df, zip_df
 
@@ -82,6 +110,11 @@ try:
     if background_data.empty or zip_df.empty:
         st.error("Failed to load required data. Please try refreshing the page.")
         st.stop()
+        
+    # Check memory usage after loading data
+    if check_memory_usage():
+        st.warning("Consider reducing the data size or optimizing memory usage")
+        
 except Exception as e:
     st.error(f"Critical error loading data: {str(e)}")
     st.stop()
@@ -197,6 +230,9 @@ if check_password():
             # Clear memory after filtering
             gc.collect()
 
+            # Log memory usage after filtering
+            st.write(f"Memory after filtering: {get_memory_usage():.1f}MB")
+
         except Exception as e:
             st.error(f"Error filtering data: {str(e)}")
             filtered_df = pd.DataFrame()
@@ -258,9 +294,14 @@ if check_password():
             del fig_carrier_breakdown
             gc.collect()
 
+            # Log memory usage after carrier breakdown
+            st.write(f"Memory after carrier breakdown: {get_memory_usage():.1f}MB")
+
         except Exception as e:
             st.error(f"Error creating carrier breakdown: {str(e)}")
 
+        # Comment out memory-intensive sections for debugging
+        """
         # --- Merge Coordinates with Shipment Data ---
         try:
             df['CI_Recipient Zip Code'] = df['CI_Recipient Zip Code'].astype(str).str.zfill(5)
@@ -484,13 +525,13 @@ if check_password():
         sample_question = "What insights can we derive from the data to improve profitability and reduce delivery delays?"
         st.write(f"**Question:** {sample_question}")
 
-        sample_answer = """
+        sample_answer = \"\"\"
         Based on historical data analysis:
         1. **Carrier Performance**: Certain carriers have consistently higher profit margins but also higher delays. Adjusting carrier contracts can optimize both profitability and on-time deliveries.
         2. **High-Volume Customers**: Focus on customers with high shipment volumes and profit margins to offer loyalty discounts and increase retention.
         3. **Seasonal Trends**: Profitability spikes during specific months. Align marketing and operations to capitalize on these trends.
         4. **Zone-Based Pricing**: Implement zone-based pricing adjustments to optimize costs in regions with lower margins.
-        """
+        \"\"\"
         st.write(f"**Answer:** {sample_answer}")
 
         # User Input Question
@@ -512,9 +553,11 @@ if check_password():
             file_name=f"{selected_customer}_report.csv",
             mime="text/csv",
         )
+        """
 
-        # Final memory cleanup
+        # Final memory cleanup and logging
         gc.collect()
+        st.write(f"Final memory usage: {get_memory_usage():.1f}MB")
 
     except Exception as e:
         st.error(f"Critical dashboard error: {str(e)}\n{traceback.format_exc()}")
